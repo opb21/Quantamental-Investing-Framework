@@ -1,1 +1,1 @@
-# Finance-Investment
+# Quantamental Investing Framework
