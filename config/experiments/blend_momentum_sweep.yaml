@@ -1,0 +1,12 @@
+base_config: "config/uk_smallcap.yaml"
+
+# Overrides applied to every variant (before the grid)
+base_overrides:
+  signal.name: "blend_momentum"
+  signal.lookbacks: [3, 6, 12]
+
+grid:
+  portfolio.n_positions: [10, 20, 30]
+  portfolio.rebalance: ["Q"]
+  portfolio.weighting: ["equal", "inv_vol", "momentum_inv_vol"]
+  portfolio.n_tranches: [1, 3]

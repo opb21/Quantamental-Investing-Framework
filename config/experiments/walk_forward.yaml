@@ -1,0 +1,14 @@
+base_config: "config/uk_smallcap.yaml"
+
+# All parameter optimisation happens on data up to this date
+is_end_date: "2022-01-01"       # 2015–2022 in-sample, 2022–2026 OOS
+
+# How to rank IS runs to select candidates for OOS validation
+selection_metric: "sharpe"       # sharpe | cagr | sortino | excess_cagr | information_ratio | max_drawdown
+top_n: 3                         # how many top IS configs to re-run OOS
+
+# Parameter grid — same format as momentum_sweep.yaml
+grid:
+  signal.lookback_months: [6, 9, 12]
+  portfolio.n_positions: [10, 20, 30]
+  portfolio.rebalance: ["M", "Q"]

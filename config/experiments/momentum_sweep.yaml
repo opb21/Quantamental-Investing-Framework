@@ -1,0 +1,10 @@
+base_config: "config/uk_smallcap.yaml"
+
+# Parameter grid — all combinations will be run.
+# Use dot notation for nested config keys.
+grid:
+  signal.lookback_months: [6, 9, 12]
+  portfolio.n_positions: [10, 20, 30]
+  portfolio.rebalance: ["Q"]
+  portfolio.weighting: ["equal", "inv_vol", "momentum_inv_vol"]
+  portfolio.n_tranches: [1, 3]

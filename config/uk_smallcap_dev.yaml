@@ -1,0 +1,41 @@
+strategy_name: "momentum"
+
+market: UK
+start_date: "2020-01-01"   # shorter window keeps runs fast during development
+end_date: "2026-02-01"
+
+universe:
+  file: "data/universe_uk_smallcap.csv"
+  ticker_column: "ticker"
+  ticker_suffix: ".L"
+
+pricing:
+  source: "yfinance"
+  price_field: "Adj Close"
+  frequency: "M"
+
+signal:
+  name: "momentum"
+  lookback_months: 12
+  skip_recent_months: 1
+
+portfolio:
+  rebalance: "Q"
+  n_positions: 12
+  weighting: "equal"         # "equal" | "inv_vol" | "momentum_inv_vol"
+  n_tranches: 1              # 1 = standard; 3 = staggered monthly
+
+costs:
+  commission_bps: 10
+  slippage_bps: 50
+
+risk:
+  window: 12
+
+benchmark:
+  ticker: "^FTSC"
+  name: "FTSE Small Cap"
+
+outputs:
+  runs_dir: "reports/dev_runs"
+  db_path: "reports/dev_runs.db"
