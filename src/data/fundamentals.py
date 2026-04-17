@@ -25,47 +25,34 @@ def fetch_ticker_info(tickers: list[str]) -> pd.DataFrame:
 
         Numeric fields are NaN where yfinance returns no data.
     """
+    _numeric_fields = (
+        "marketCap", "trailingPE", "priceToBook", "enterpriseToEbitda",
+        "trailingEps", "earningsGrowth", "revenueGrowth", "profitMargins",
+        "returnOnEquity", "debtToEquity", "currentRatio", "dividendYield",
+    )
+
     rows = []
     for ticker in tickers:
         try:
             info = yf.Ticker(ticker).info
-            rows.append({
+            row = {
                 "ticker": ticker,
                 "name": info.get("shortName") or info.get("longName") or ticker,
                 "sector": info.get("sector") or "Unknown",
                 "industry": info.get("industry") or "Unknown",
                 "website": info.get("website"),
-                "marketCap": info.get("marketCap"),
-                "trailingPE": info.get("trailingPE"),
-                "priceToBook": info.get("priceToBook"),
-                "enterpriseToEbitda": info.get("enterpriseToEbitda"),
-                "trailingEps": info.get("trailingEps"),
-                "earningsGrowth": info.get("earningsGrowth"),
-                "revenueGrowth": info.get("revenueGrowth"),
-                "profitMargins": info.get("profitMargins"),
-                "returnOnEquity": info.get("returnOnEquity"),
-                "debtToEquity": info.get("debtToEquity"),
-                "currentRatio": info.get("currentRatio"),
-                "dividendYield": info.get("dividendYield"),
-            })
+            }
+            for field in _numeric_fields:
+                row[field] = info.get(field)
         except Exception:
-            rows.append({
+            row = {
                 "ticker": ticker,
                 "name": ticker,
                 "sector": "Unknown",
                 "industry": "Unknown",
                 "website": None,
-                "marketCap": None,
-                "trailingPE": None,
-                "priceToBook": None,
-                "enterpriseToEbitda": None,
-                "trailingEps": None,
-                "earningsGrowth": None,
-                "revenueGrowth": None,
-                "profitMargins": None,
-                "returnOnEquity": None,
-                "debtToEquity": None,
-                "currentRatio": None,
-                "dividendYield": None,
-            })
+            }
+            for field in _numeric_fields:
+                row[field] = None
+        rows.append(row)
     return pd.DataFrame(rows).set_index("ticker")

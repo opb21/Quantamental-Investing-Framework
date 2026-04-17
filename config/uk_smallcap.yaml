@@ -15,9 +15,15 @@ pricing:
   frequency: "M"             # month-end for long-horizon momentum
 
 signal:
-  name: "momentum"
-  lookback_months: 12
+  name: "blend_momentum"
+  lookbacks: [3, 6, 12]        # periods to blend
+  blend_weights: [1, 1, 1]     # equal-weighted (normalised automatically)
   skip_recent_months: 1
+  vol_adjust: true              # divide each return by realised annualised vol (Sharpe momentum)
+  vol_method: "rolling"         # "rolling" | "ewma"
+  vol_window: null              # rolling only: null = dynamic (lookback × 21 days), int = static days
+  ewma_lambda: 0.97             # ewma only; RiskMetrics default (α = 0.03, ~33-month memory)
+
 
 portfolio:
   rebalance: "Q"             # quarter-end

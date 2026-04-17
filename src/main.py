@@ -7,7 +7,7 @@ from src.data.universe import load_universe
 from src.data.pricing import load_prices_yfinance, resample_prices, clip_extreme_returns, load_benchmark_yfinance
 from src.strategies.momentum_strategy import run_momentum_strategy
 from src.backtest.engine import backtest_long_only
-from src.analytics.performance import calculate_performance, calculate_relative_performance, rolling_sharpe
+from src.analytics.performance import calculate_performance, calculate_relative_performance, rolling_sharpe, _PERIODS_PER_YEAR
 from src.analytics.risk import drawdown_series, rolling_vol, avg_pairwise_correlation, contribution_to_vol
 from src.analytics.signal_analysis import information_coefficient, ic_decay as compute_ic_decay, ic_summary
 from src.io.results_store import create_run_dir, save_run_artifacts
@@ -130,8 +130,7 @@ def run_pipeline(
 
     freq = cfg["pricing"].get("frequency", "M")
     risk_window = cfg.get("risk", {}).get("window", 12)
-    _ppy = {"D": 252, "W": 52, "M": 12, "ME": 12, "Q": 4, "QE": 4, "SA": 2, "6ME": 2, "A": 1, "Y": 1, "YE": 1}
-    periods = _ppy.get(freq, 12)
+    periods = _PERIODS_PER_YEAR.get(freq, 12)
 
     metrics = calculate_performance(results["portfolio_returns_net"], freq=freq)
     _gross_metrics = calculate_performance(results["portfolio_returns"], freq=freq)

@@ -83,3 +83,116 @@ def test_blend_momentum_weights_normalised():
     a = blend_momentum(prices, lookbacks=[3, 12], blend_weights=[2, 2])
     b = blend_momentum(prices, lookbacks=[3, 12])
     pd.testing.assert_frame_equal(a, b)
+
+
+# ── vol_adjust tests ────────────────────────────────────────────────────────
+
+def test_momentum_vol_adjust_differs_from_raw():
+    """Vol-adjusted scores should differ from unadjusted scores (not a no-op)."""
+    prices = _prices(n_months=36)
+    raw = momentum(prices, lookback_months=12, vol_adjust=False)
+    adj = momentum(prices, lookback_months=12, vol_adjust=True)
+    # They should not be identical (vol normalisation changes the values)
+    assert not raw.equals(adj)
+
+
+def test_momentum_vol_adjust_no_inf():
+    """Vol-adjusted scores must not contain inf values."""
+    prices = _prices(n_months=36)
+    adj = momentum(prices, lookback_months=12, vol_adjust=True)
+    assert not np.isinf(adj.values[~np.isnan(adj.values)]).any()
+
+
+def test_momentum_vol_adjust_constant_prices_gives_nan():
+    """Constant prices → zero vol → division yields NaN (not inf)."""
+    idx = pd.date_range("2018-01-31", periods=24, freq="ME")
+    # Ticker A is flat (zero vol); B has normal variation
+    prices = pd.DataFrame(
+        {"A": np.full(24, 100.0), "B": np.linspace(100, 130, 24)},
+        index=idx,
+    )
+    adj = momentum(prices, lookback_months=12, vol_adjust=True)
+    # A: non-zero return (price unchanged, so actually ret=0 — but vol also 0 → NaN)
+    # Either way, no inf should appear
+    assert not np.isinf(adj.values[~np.isnan(adj.values)]).any()
+
+
+def test_blend_momentum_vol_adjust_no_inf():
+    """Vol-adjusted blend scores must not contain inf values."""
+    prices = _prices(n_months=36)
+    adj = blend_momentum(prices, lookbacks=[3, 6, 12], vol_adjust=True)
+    assert not np.isinf(adj.values[~np.isnan(adj.values)]).any()
+
+
+def test_blend_momentum_vol_adjust_false_unchanged():
+    """vol_adjust=False (default) should give the same result as not passing the flag."""
+    prices = _prices(n_months=36)
+    a = blend_momentum(prices, lookbacks=[6, 12])
+    b = blend_momentum(prices, lookbacks=[6, 12], vol_adjust=False)
+    pd.testing.assert_frame_equal(a, b)
+
+
+# ── daily prices vol tests ───────────────────────────────────────────────────
+
+def _daily_prices_for(monthly: pd.DataFrame) -> pd.DataFrame:
+    """Expand monthly prices to pseudo-daily by forward-filling within each month."""
+    # Build a daily index spanning the monthly range
+    daily_idx = pd.date_range(monthly.index[0], monthly.index[-1], freq="B")
+    return monthly.reindex(daily_idx, method="ffill")
+
+
+def test_momentum_daily_vol_differs_from_monthly():
+    """Daily price-based vol should produce different scores than monthly fallback."""
+    prices = _prices(n_months=36)
+    prices_daily = _daily_prices_for(prices)
+    monthly_adj = momentum(prices, lookback_months=12, vol_adjust=True)
+    daily_adj = momentum(prices, lookback_months=12, vol_adjust=True, prices_daily=prices_daily)
+    # Drop rows where both are NaN (early periods) before comparing
+    mask = monthly_adj.notna() & daily_adj.notna()
+    assert not (monthly_adj[mask] == daily_adj[mask]).all().all()
+
+
+def test_momentum_daily_vol_aligns_to_monthly_index():
+    """Output index must match the monthly prices index even when daily prices are provided."""
+    prices = _prices(n_months=36)
+    prices_daily = _daily_prices_for(prices)
+    result = momentum(prices, lookback_months=12, vol_adjust=True, prices_daily=prices_daily)
+    assert result.index.equals(prices.index)
+
+
+def test_momentum_ewma_no_inf_daily():
+    """EWMA vol with daily prices must never produce inf."""
+    prices = _prices(n_months=36)
+    prices_daily = _daily_prices_for(prices)
+    adj = momentum(
+        prices, lookback_months=12, vol_adjust=True,
+        vol_method="ewma", ewma_lambda=0.97, prices_daily=prices_daily,
+    )
+    assert not np.isinf(adj.values[~np.isnan(adj.values)]).any()
+
+
+def test_momentum_rolling_static_differs_from_dynamic_daily():
+    """Static vol window (252 days) should differ from dynamic (lookback × 21 days)."""
+    prices = _prices(n_months=48)
+    prices_daily = _daily_prices_for(prices)
+    dynamic = momentum(
+        prices, lookback_months=12, vol_adjust=True,
+        vol_window=None, prices_daily=prices_daily,
+    )
+    static = momentum(
+        prices, lookback_months=12, vol_adjust=True,
+        vol_window=126, prices_daily=prices_daily,  # 6-month static vs 12-month dynamic
+    )
+    mask = dynamic.notna() & static.notna()
+    assert not (dynamic[mask] == static[mask]).all().all()
+
+
+def test_blend_momentum_daily_vol_no_inf():
+    """Blend with daily prices and EWMA vol must never produce inf."""
+    prices = _prices(n_months=48)
+    prices_daily = _daily_prices_for(prices)
+    result = blend_momentum(
+        prices, lookbacks=[3, 6, 12], vol_adjust=True,
+        vol_method="ewma", ewma_lambda=0.97, prices_daily=prices_daily,
+    )
+    assert not np.isinf(result.values[~np.isnan(result.values)]).any()

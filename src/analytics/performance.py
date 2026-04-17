@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-_PERIODS_PER_YEAR = {"D": 252, "W": 52, "M": 12, "ME": 12, "Q": 4, "QE": 4, "A": 1, "Y": 1, "YE": 1}
+_PERIODS_PER_YEAR = {"D": 252, "W": 52, "M": 12, "ME": 12, "Q": 4, "QE": 4, "SA": 2, "6ME": 2, "A": 1, "Y": 1, "YE": 1}
 
 
 def calculate_performance(returns: pd.Series, freq: str = "M") -> dict:
@@ -19,10 +19,12 @@ def calculate_performance(returns: pd.Series, freq: str = "M") -> dict:
     periods = _PERIODS_PER_YEAR.get(freq, 252)
 
     returns = returns.dropna()
+    if returns.empty:
+        return {k: float("nan") for k in ("CAGR", "Volatility", "Sharpe", "Sortino", "Calmar", "MaxDrawdown", "HitRate", "AvgWin", "AvgLoss")}
 
     cumulative = (1 + returns).cumprod()
     n_years = len(returns) / periods
-    cagr = cumulative.iloc[-1] ** (1 / n_years) - 1
+    cagr = cumulative.iloc[-1] ** (1 / n_years) - 1 if n_years > 0 else float("nan")
 
     volatility = returns.std() * np.sqrt(periods)
 
@@ -98,11 +100,12 @@ def calculate_relative_performance(
 
     beta = port.cov(bench) / bench.var() if bench.var() != 0 else float("nan")
 
-    tracking_error = active.std() * np.sqrt(periods) if active.std() != 0 else 0.0
+    active_std = active.std()
+    tracking_error = active_std * np.sqrt(periods) if active_std != 0 else 0.0
 
     information_ratio = (
-        active.mean() / active.std() * np.sqrt(periods)
-        if active.std() != 0
+        active.mean() / active_std * np.sqrt(periods)
+        if active_std != 0
         else 0.0
     )
 
@@ -132,6 +135,3 @@ def rolling_sharpe(returns: pd.Series, window: int = 12, freq: str = "M") -> pd.
     result = roll_mean / roll_std * np.sqrt(periods)
     return result.where(roll_std != 0, other=0.0).rename("rolling_sharpe")
 
-
-# Alias used by main.py
-performance_summary = calculate_performance

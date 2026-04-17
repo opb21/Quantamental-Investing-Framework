@@ -1,0 +1,39 @@
+base_config: "config/uk_smallcap.yaml"
+
+# Overrides applied to every variant before the grid
+base_overrides:
+  signal.name: "blend_momentum"
+  signal.lookbacks: [3, 6, 12]
+  signal.blend_weights: [1, 1, 1]
+  signal.skip_recent_months: 1
+
+# Named signal variants — these are meaningful, coupled parameter sets.
+# Each label becomes the strategy_name in the run DB.
+variants:
+  - label: "no_vol_adj"
+    signal.vol_adjust: false
+
+  - label: "rolling_dynamic"
+    signal.vol_adjust: true
+    signal.vol_method: "rolling"
+    signal.vol_window: null         # window = lookback × 21 days per component
+
+  - label: "rolling_static_252d"
+    signal.vol_adjust: true
+    signal.vol_method: "rolling"
+    signal.vol_window: 252          # fixed 252-day (~1yr) window for all components
+
+  - label: "ewma_0.97"
+    signal.vol_adjust: true
+    signal.vol_method: "ewma"
+    signal.ewma_lambda: 0.97        # slow decay; ~33-month effective memory
+
+  - label: "ewma_0.94"
+    signal.vol_adjust: true
+    signal.vol_method: "ewma"
+    signal.ewma_lambda: 0.94        # faster decay; ~16-month effective memory
+
+# Portfolio grid crossed with every signal variant above.
+# Total runs = 5 variants × 3 n_positions = 15 runs.
+grid:
+  portfolio.n_positions: [10, 20, 30]

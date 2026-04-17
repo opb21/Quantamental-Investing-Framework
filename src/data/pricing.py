@@ -2,7 +2,8 @@ import pandas as pd
 import yfinance as yf
 
 # pandas 3.x renamed period-end aliases: 'M' -> 'ME', 'Q' -> 'QE', etc.
-_FREQ_MAP = {"M": "ME", "Q": "QE", "SA": "6ME", "A": "YE", "Y": "YE"}
+# Exported so portfolio construction can reuse the same map.
+FREQ_MAP = {"M": "ME", "Q": "QE", "SA": "6ME", "A": "YE", "Y": "YE"}
 
 
 def load_prices_yfinance(
@@ -27,7 +28,7 @@ def load_prices_yfinance(
 
 def resample_prices(prices: pd.DataFrame, frequency: str = "M") -> pd.DataFrame:
     """Resample to period end (e.g., month-end) using last available price."""
-    freq = _FREQ_MAP.get(frequency, frequency)
+    freq = FREQ_MAP.get(frequency, frequency)
     return prices.resample(freq).last()
 
 

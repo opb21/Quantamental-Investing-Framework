@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-_FREQ_MAP = {"M": "ME", "Q": "QE", "SA": "6ME", "A": "YE", "Y": "YE"}
+from src.data.pricing import FREQ_MAP as _FREQ_MAP
 
 
 def select_top_n(scores: pd.DataFrame, n: int) -> pd.DataFrame:

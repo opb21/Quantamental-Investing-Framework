@@ -22,20 +22,53 @@ def _set_nested(d: dict, key_path: str, value) -> None:
     d[keys[-1]] = value
 
 
-def _generate_variants(base_cfg: dict, grid: dict) -> list[dict]:
-    """Return all config dicts from the Cartesian product of the parameter grid."""
-    if not grid:
-        return [copy.deepcopy(base_cfg)]
+def _apply_overrides(cfg: dict, overrides: dict) -> dict:
+    """Return a deep copy of cfg with dot-notation overrides applied."""
+    cfg = copy.deepcopy(cfg)
+    for key_path, value in overrides.items():
+        _set_nested(cfg, key_path, value)
+    return cfg
 
+
+def _generate_variants(base_cfg: dict, grid: dict, variants: list | None = None) -> list[dict]:
+    """Return all config dicts to run.
+
+    If ``variants`` is provided, each entry is a named override set — a dict
+    of dot-notation key paths plus an optional ``label`` key.  The label is
+    written to ``strategy_name`` so it appears in the run DB.
+
+    If ``grid`` is also provided, every variant is crossed with the full
+    Cartesian product of the grid (variants × grid combinations).
+
+    If only ``grid`` is provided (legacy behaviour), the Cartesian product is
+    applied to the single base config.
+    """
+    # Build per-variant base configs
+    if variants:
+        base_cfgs = []
+        for v in variants:
+            overrides = {k: val for k, val in v.items() if k != "label"}
+            cfg = _apply_overrides(base_cfg, overrides)
+            if "label" in v:
+                cfg["strategy_name"] = v["label"]
+            base_cfgs.append(cfg)
+    else:
+        base_cfgs = [copy.deepcopy(base_cfg)]
+
+    if not grid:
+        return base_cfgs
+
+    # Cross each base config with the Cartesian product of the grid
     keys = list(grid.keys())
     values = list(grid.values())
-    variants = []
-    for combo in itertools.product(*values):
-        cfg = copy.deepcopy(base_cfg)
-        for key, val in zip(keys, combo):
-            _set_nested(cfg, key, val)
-        variants.append(cfg)
-    return variants
+    result = []
+    for b_cfg in base_cfgs:
+        for combo in itertools.product(*values):
+            cfg = copy.deepcopy(b_cfg)
+            for key, val in zip(keys, combo):
+                _set_nested(cfg, key, val)
+            result.append(cfg)
+    return result
 
 
 def run_sweep(sweep_cfg_path: str | Path) -> list[dict]:
@@ -67,36 +100,38 @@ def run_sweep(sweep_cfg_path: str | Path) -> list[dict]:
         _set_nested(base_cfg, key_path, value)
 
     grid = sweep.get("grid", {})
-    variants = _generate_variants(base_cfg, grid)
+    named_variants = sweep.get("variants")
+    all_variants = _generate_variants(base_cfg, grid, named_variants)
 
-    print(f"Loading prices for {len(variants)} variants (downloaded once)...")
+    print(f"Loading prices for {len(all_variants)} variants (downloaded once)...")
     prices, prices_daily, benchmark_returns = load_prices_for_config(base_cfg)
-    print(f"Prices loaded. Running {len(variants)} variants...\n")
+    print(f"Prices loaded. Running {len(all_variants)} variants...\n")
 
     results = []
-    for i, cfg in enumerate(variants, 1):
+    for i, cfg in enumerate(all_variants, 1):
         sig = cfg.get("signal", {})
         port = cfg.get("portfolio", {})
+        strategy_name = cfg.get("strategy_name", "")
         label = (
-            f"[{i}/{len(variants)}] "
-            f"lookback={sig.get('lookback_months')} "
-            f"n_positions={port.get('n_positions')} "
-            f"rebalance={port.get('rebalance')}"
+            f"[{i}/{len(all_variants)}] "
+            + (f"{strategy_name}  " if strategy_name else "")
+            + f"n={port.get('n_positions')}  "
+            + f"rebalance={port.get('rebalance')}"
         )
         print(label)
         try:
             result = run_pipeline(cfg, prices=prices, prices_daily=prices_daily, benchmark_returns=benchmark_returns)
             m = result["metrics"]
             print(
-                f"  CAGR={m.get('CAGR'):.3f}  "
-                f"Sharpe={m.get('Sharpe'):.3f}  "
+                f"  CAGR={m.get('CAGR', float('nan')):.3f}  "
+                f"Sharpe={m.get('Sharpe', float('nan')):.3f}  "
                 f"ExcessCAGR={m.get('ExcessCAGR', float('nan')):.3f}"
             )
             results.append(result)
         except Exception as e:
             print(f"  FAILED: {e}")
 
-    print(f"\nSweep complete. {len(results)}/{len(variants)} variants succeeded.")
+    print(f"\nSweep complete. {len(results)}/{len(all_variants)} variants succeeded.")
     return results
 
 
